@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Conduct Test - {{ child.name }}</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
+<style>
+body{background:#f4f6f9;}
+.navbar{background:#1f1f1f;}
+.navbar a{color:white!important;}
+.main-box{max-width:900px;margin:auto;}
+.card{border:none;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.08);}
+pre{background:#f8f9fa;padding:15px;border-radius:10px;}
+canvas,video{border-radius:10px;border:2px solid #e0e0e0;}
+.score{font-size:20px;font-weight:600;padding:6px 15px;border-radius:20px;}
+.Low{background:#c6f6c6;}
+.Medium{background:#fff3b0;}
+.High{background:#f9b0b0;}
+.btn-dark{background:#1f1f1f;}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg px-4 py-2">
+    <a class="navbar-brand fw-bold" href="#"><i class="fas fa-graduation-cap"></i> Mind Track</a>
+    <div class="ms-auto">
+        <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+    </div>
+</nav>
+
+<div class="container mt-4">
+<div class="main-box">
+
+<h3 class="text-center mb-4">
+    Conducting Test For <strong>{{ child.name }}</strong>
+    <span class="badge bg-secondary">{{ level|capitalize }}</span>
+</h3>
+
+<!-- READING TEST -->
+<div class="card p-4 mb-4 text-center">
+    {% if age_group == '1-5' %}
+        <h5><i class="fas fa-headphones text-primary"></i> Searching for Sounds</h5>
+        <p class="text-muted small">Listen to the sound and click the picture that starts with it!</p>
+        <div class="text-center my-4">
+            <button class="btn btn-warning btn-lg rounded-circle mb-3 shadow" style="width:80px;height:80px;" id="playReadingSoundBtn">
+                <i class="fas fa-volume-up" style="font-size:30px;"></i>
+            </button>
+            <div class="d-flex justify-content-center gap-4 mt-4" id="readingChoicesContainer">
+                {% for choice in game_data.reading.choices %}
+                <button class="btn btn-outline-primary reading-choice-btn shadow-sm" style="font-size: 60px; padding: 10px 30px; border-radius: 15px;" data-correct="{{ 'true' if choice.emoji == game_data.reading.target_emoji else 'false' }}">
+                    {{ choice.emoji }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        
+    {% elif age_group == '6-10' %}
+        <h5><i class="fas fa-user-astronaut text-primary"></i> The Alien Word Decoder</h5>
+        <p class="text-muted small">Listen to the alien word and click the correct spelling!</p>
+        <div class="text-center my-4">
+            <button class="btn btn-warning btn-lg rounded-circle mb-3" style="width:80px;height:80px;" id="playReadingSoundBtn">
+                <i class="fas fa-volume-up" style="font-size:30px;"></i>
+            </button>
+            <div class="d-flex justify-content-center gap-3 mt-4">
+                {% for choice in game_data.reading.choices %}
+                <button class="btn btn-outline-primary reading-choice-btn" style="font-size: 30px; padding: 10px 20px; font-family: monospace;" data-correct="{{ 'true' if choice == game_data.reading.target else 'false' }}">
+                    {{ choice }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        
+    {% else %}
+        <h5><i class="fas fa-microphone text-primary"></i> Rapid Naming Sprint (Voice)</h5>
+        <p class="text-muted small"><strong>Say ALL the words out loud</strong> in order as fast as you can. The system will listen!</p>
+        <div class="text-center my-4">
+            <button id="startReading" class="btn btn-success mb-3"><i class="fas fa-microphone"></i> Start Voice Sprint</button>
+            <p id="speechFeedback" class="text-info fw-bold"></p>
+            <div id="ranGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 400px; margin: auto; pointer-events: none; opacity: 0.5;">
+                {% for item in game_data.reading.grid %}
+                <button class="btn btn-outline-dark ran-btn shadow-sm fw-bold" style="font-size: 24px; height: 80px;">
+                    {{ item }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="mt-3">
+        <p class="mb-0 fw-bold">Reading Score: <span id="readingScore" class="score">0</span></p>
+    </div>
+</div>
+
+<!-- ATTENTION TEST -->
+<div class="card p-4 mb-4 text-center">
+    {% if age_group == '1-5' %}
+        <h5><i class="fas fa-circle text-success"></i> The Bubble Catch</h5>
+        <p class="text-muted small">Pop only the bubbles that match the color called out!</p>
+        <div class="mb-3">
+            <button id="startBubbleBtn" class="btn btn-success"><i class="fas fa-play"></i> Start Bubbles</button>
+        </div>
+        <div id="bubbleContainer" style="height: 300px; background: #e0f7fa; position: relative; border-radius: 10px; overflow: hidden; border: 3px solid #00bcd4; margin: auto;">
+            <!-- Bubbles injected dynamically -->
+        </div>
+
+    {% elif age_group == '6-10' %}
+        <h5><i class="fas fa-bullseye text-danger"></i> Target Hunter CPT</h5>
+        <p class="text-muted small">Click the target ONLY when a <span class="text-primary">Blue Star ⭐</span> is IMMEDIATELY followed by a <span class="text-danger">Red Square 🟥</span></p>
+        <div class="mb-3">
+            <button id="startCpt" class="btn btn-success"><i class="fas fa-play"></i> Start CPT</button>
+        </div>
+        <div id="cptScreen" style="height: 250px; background: #fff; border: 3px solid #333; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 100px;">
+            <span id="cptElement">❓</span>
+        </div>
+        <button id="cptClickBtn" class="btn btn-warning btn-lg mt-4 w-100 py-3" disabled>CLICK TARGET</button>
+
+    {% else %}
+        <h5><i class="fas fa-flask text-info"></i> The Distraction Lab</h5>
+        <p class="text-muted small">Sort the falling items: Red to Left, Blue to Right. Ignore any popups!</p>
+        <div class="mb-3">
+            <button id="startLab" class="btn btn-success"><i class="fas fa-play"></i> Start Lab</button>
+        </div>
+        <div style="position: relative; height: 300px; background:#2c3e50; border-radius:10px; overflow: hidden; max-width:100%;" class="mx-auto" id="labContainer">
+            <div id="fakeNotification" style="position: absolute; top: 10px; right: 10px; width: 200px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: none; z-index: 10; text-align: left;">
+                <strong class="text-primary"><i class="fab fa-instagram"></i> Instagram</strong><br>
+                <span style="font-size: 12px; color: black;">Friend liked your photo!</span>
+                <button class="btn btn-sm btn-outline-danger mt-2 w-100" onclick="closeNotification()">Close Popup</button>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between mt-3 gap-2">
+            <button id="sortRed" class="btn btn-danger btn-lg w-50" disabled>RED (Left)</button>
+            <button id="sortBlue" class="btn btn-primary btn-lg w-50" disabled>BLUE (Right)</button>
+        </div>
+    {% endif %}
+    
+    <div class="mt-4">
+        <p class="mb-0 fw-bold">Attention Score: <span id="attentionScore" class="score">0</span></p>
+    </div>
+</div>
+
+<!-- BEHAVIOR TEST -->
+<div class="card p-4 mb-4 text-center">
+    {% if age_group == '1-5' %}
+        <h5><i class="fas fa-star text-warning"></i> The Memory Hide & Seek</h5>
+        <p class="text-muted small">Watch where the star hides! Don't click until "Wait for it..." disappears!</p>
+        <div class="mb-3">
+            <button id="startMemory" class="btn btn-success"><i class="fas fa-play"></i> Play</button>
+        </div>
+        <div style="position: relative; overflow: hidden; height: 180px;" class="py-4 mt-2" id="cupContainer">
+            <div id="memoryOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; border-radius: 10px;">
+                <h2 style="color: white; font-weight: bold;"><i class="fas fa-hand-paper text-danger"></i> Wait for it...</h2>
+            </div>
+            
+            <div class="d-flex justify-content-center gap-4 align-items-end" style="height: 100px;">
+                <button class="btn btn-light memory-cup shadow" style="font-size: 50px; border-radius: 10px 10px 0 0; width: 80px; height: 100px; position: absolute; left: 15%; top: 40px;" data-box="0">🥤</button>
+                <button class="btn btn-light memory-cup shadow" style="font-size: 50px; border-radius: 10px 10px 0 0; width: 80px; height: 100px; position: absolute; left: 40%; top: 40px;" data-box="1">🥤</button>
+                <button class="btn btn-light memory-cup shadow" style="font-size: 50px; border-radius: 10px 10px 0 0; width: 80px; height: 100px; position: absolute; left: 65%; top: 40px;" data-box="2">🥤</button>
+            </div>
+            <div id="memoryStar" style="font-size: 40px; position: absolute; transition: all 1s; left: 45%; opacity: 0; top: 10px; z-index: -1;">⭐</div>
+        </div>
+
+    {% elif age_group == '6-10' %}
+        <h5><i class="fas fa-calendar-check text-warning"></i> Virtual Day Planner</h5>
+        <p class="text-muted small">Complete the morning routine before the timer runs out! Click tasks to finish them.</p>
+        <div class="mb-3">
+            <button id="startPlanner" class="btn btn-success"><i class="fas fa-play"></i> Start Routine</button>
+        </div>
+        <h4 id="plannerTimer" style="color: red; display: none;">15s</h4>
+        <div id="plannerTasks" class="d-flex flex-column gap-2 max-w-sm mx-auto" style="max-width: 300px; opacity: 0.5; pointer-events: none;">
+            {% for task in game_data.behavior.tasks %}
+                <button class="btn btn-outline-primary planner-task text-start" onclick="finishTask(this)">
+                    <i class="far fa-circle"></i> {{ task.name }}
+                </button>
+            {% endfor %}
+        </div>
+
+    {% else %}
+        <h5><i class="fas fa-comments text-warning"></i> Social Scenario Simulator</h5>
+        <p class="text-muted small">Read the scenario below and choose how you would react.</p>
+        <div id="scenarioBox" style="background: #fdfbfb; border: 1px solid #ddd; border-radius: 10px;" class="p-4 mt-3">
+            <h5 class="mb-4">"{{ game_data.behavior.scenario.context }}"</h5>
+            <div class="d-flex flex-column gap-3 max-w-md mx-auto" style="max-width: 500px;">
+                {% for choice in game_data.behavior.scenario.choices %}
+                    <button class="btn btn-outline-dark text-start p-3 scenario-btn" data-type="{{ choice.type }}" onclick="selectScenario(this)">
+                        {{ choice.text }}
+                    </button>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+    
+    <div class="mt-4">
+        <p class="mb-0 fw-bold">Behavior Score: <span id="behaviorScore" class="score">0</span></p>
+    </div>
+</div>
+
+<!-- SUBMIT -->
+<div class="card p-4 text-center mb-5">
+    <button id="submitTest" class="btn btn-dark btn-lg mb-2"><i class="fas fa-check-circle"></i> Submit Full Test</button>
+    <button id="nextLevelTest" class="btn btn-outline-dark" style="display:none;">Next Level Test</button>
+</div>
+
+</div>
+</div>
+
+<div id="jinja-data" data-gamedata='{{ game_data | tojson | forceescape }}' data-agegroup="{{ age_group }}" style="display:none;"></div>
+<script>
+const dataEl = document.getElementById('jinja-data');
+const gameData = JSON.parse(dataEl.dataset.gamedata || '{}');
+const ageGroup = dataEl.dataset.agegroup || '';
+
+// ====== READING & LANGUAGE TESTS ======
+let readingScore = 0;
+
+if (ageGroup === '1-5' || ageGroup === '6-10') {
+    const playBtn = document.getElementById("playReadingSoundBtn");
+    if (playBtn) {
+        playBtn.onclick = () => {
+            const synth = window.speechSynthesis;
+            const utterThis = new SpeechSynthesisUtterance(
+                ageGroup === '1-5' ? gameData.reading.target_prompt : gameData.reading.target
+            );
+            utterThis.rate = 0.8;
+            synth.speak(utterThis);
+        };
+    }
+
+    let fails = 0;
+
+    document.querySelectorAll(".reading-choice-btn").forEach(btn => {
+        btn.onclick = () => {
+            if (btn.getAttribute("data-correct") === "true") {
+                document.querySelectorAll(".reading-choice-btn").forEach(b => b.disabled = true);
+                btn.classList.add("btn-success");
+                btn.classList.remove("btn-outline-primary");
+                
+                // Score based on fails
+                readingScore = fails === 0 ? 3 : (fails < 3 ? 2 : 1);
+                updateScoreUI("readingScore", readingScore);
+            } else {
+                btn.classList.add("btn-danger");
+                btn.classList.remove("btn-outline-primary");
+                btn.disabled = true;
+                fails++;
+                
+                // Gentle Prompt for 1-5 after 3 fails
+                if (fails >= 3 && ageGroup === '1-5') {
+                    document.querySelectorAll(".reading-choice-btn").forEach(b => {
+                        if (b.getAttribute("data-correct") === "true") {
+                            b.classList.remove("btn-outline-primary");
+                            b.classList.add("btn-warning");
+                            b.style.boxShadow = "0 0 20px #ffc107";
+                        }
+                    });
+                }
+            }
+        };
+    });
+} else {
+    // RAN Sprint 11-15 WITH VOICE DIAGNOSIS
+    let ranStartTime;
+    let ranActive = false;
+    let clickedCount = 0;
+    
+    document.getElementById("startReading").onclick = function() {
+        this.style.display = 'none';
+        const grid = document.getElementById("ranGrid");
+        const feedback = document.getElementById("speechFeedback");
+        grid.style.opacity = '1';
+        ranStartTime = Date.now();
+        ranActive = true;
+
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRec) {
+             feedback.innerText = "Speech API not supported here. Click items manually as a fallback.";
+             grid.style.pointerEvents = 'auto'; // fallback
+             window.clickRAN = function(btn) {
+                  if(!ranActive) return;
+                  processRanHit(btn);
+             };
+             // assign fallback click
+             document.querySelectorAll('.ran-btn').forEach(btn => btn.onclick = () => window.clickRAN(btn));
+             return;
+        }
+
+        const recognition = new SpeechRec();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        let targetIndex = 0;
+        const btns = document.querySelectorAll(".ran-btn");
+        const itemsToSay = Array.from(btns).map(b => b.innerText.trim().toLowerCase());
+        
+        feedback.innerText = "Listening... 🎤 Please read the items out loud!";
+        
+        recognition.onresult = (event) => {
+            if (!ranActive) return;
+            const currentTranscript = Array.from(event.results)
+                                  .map(res => res[0].transcript.toLowerCase())
+                                  .join(" ");
+                                  
+            // simple trailing word match
+            let words = currentTranscript.split(" ").slice(-5);
+            let expectedWord = itemsToSay[targetIndex];
+            
+            if (words.includes(expectedWord) || currentTranscript.includes(expectedWord)) {
+                processRanHit(btns[targetIndex]);
+                targetIndex++;
+            }
+        };
+        
+        recognition.start();
+    };
+
+    function processRanHit(btn) {
+        if (!ranActive) return;
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.classList.remove("btn-outline-dark");
+        btn.classList.add("btn-success");
+        clickedCount++;
+        
+        if (clickedCount >= gameData.reading.grid.length) {
+            ranActive = false;
+            const timeTaken = (Date.now() - ranStartTime) / 1000;
+            if (timeTaken < 15) readingScore = 3;
+            else if (timeTaken < 25) readingScore = 2;
+            else readingScore = 1;
+            
+            document.getElementById("speechFeedback").innerText = `Great! Finished in ${timeTaken.toFixed(1)}s`;
+            updateScoreUI("readingScore", readingScore);
+        }
+    }
+}
+
+function updateScoreUI(elementId, scoreLevelNumeric) {
+    const span = document.getElementById(elementId);
+    if (!span) return;
+    const text = ["Low","Medium","High"][scoreLevelNumeric-1] || "Low";
+    span.innerText = text;
+    span.className = `score ${text}`;
+}
+
+// ====== ATTENTION TESTS LOGIC ======
+let attentionScore = 0;
+
+if (ageGroup === '1-5') {
+    const startBubbleBtn = document.getElementById("startBubbleBtn");
+    const container = document.getElementById("bubbleContainer");
+    let bubbleInterval;
+    let bubblesActive = false;
+    let impulseErrors = 0;
+    let focusMisses = 0;
+    
+    const colors = {
+        "RED": "#e74c3c", "BLUE": "#3498db", 
+        "GREEN": "#2ecc71", "YELLOW": "#f1c40f"
+    };
+    
+    // Fallback if elements not found on this view layer
+    if (startBubbleBtn && container) {
+        startBubbleBtn.onclick = () => {
+            startBubbleBtn.disabled = true;
+            bubblesActive = true;
+            attentionScore = 3;
+            updateScoreUI("attentionScore", 3);
+            
+            // Play TTS Prompt
+            const synth = window.speechSynthesis;
+            const u = new SpeechSynthesisUtterance(gameData.attention.target_prompt);
+            u.rate = 0.9;
+            synth.speak(u);
+            
+            bubbleInterval = setInterval(spawnBubble, 1000);
+            
+            // End game after 15 seconds
+            setTimeout(() => {
+                clearInterval(bubbleInterval);
+                bubblesActive = false;
+                container.innerHTML = "<h3 style='margin-top:120px; color:#00bcd4;'>Great Job!</h3>";
+                
+                if (impulseErrors > 2 || focusMisses > 2) attentionScore = 1;
+                else if (impulseErrors > 0 || focusMisses > 0) attentionScore = 2;
+                
+                updateScoreUI("attentionScore", attentionScore);
+            }, 15000);
+        };
+        
+        function spawnBubble() {
+            if (!bubblesActive) return;
+            const b = document.createElement("div");
+            const isTarget = Math.random() > 0.5;
+            
+            // Generate a color. If we need distractor, ensure it's not the target.
+            let colorName = gameData.attention.target_color;
+            if (!isTarget) {
+               const options = Object.keys(colors).filter(c => c !== gameData.attention.target_color);
+               colorName = options[Math.floor(Math.random()*options.length)];
+            }
+            
+            b.style.width = "60px";
+            b.style.height = "60px";
+            b.style.borderRadius = "50%";
+            b.style.backgroundColor = colors[colorName];
+            b.style.position = "absolute";
+            b.style.bottom = "-60px";
+            b.style.cursor = "pointer";
+            b.style.left = (Math.random() * 80 + 10) + "%";
+            b.style.transition = "bottom 4s linear";
+            b.style.boxShadow = "inset -10px -10px 20px rgba(0,0,0,0.2), inset 10px 10px 20px rgba(255,255,255,0.8)";
+            b.dataset.colorName = colorName;
+            
+            container.appendChild(b);
+            
+            // Trigger animation frame
+            setTimeout(() => { b.style.bottom = "320px"; }, 50);
+            
+            // Click handler
+            b.onmousedown = () => {
+                if (b.dataset.popped) return;
+                b.dataset.popped = "true";
+                b.style.transform = "scale(1.5)";
+                b.style.opacity = "0";
+                setTimeout(() => b.remove(), 200);
+                
+                if (colorName !== gameData.attention.target_color) {
+                    impulseErrors++;
+                    updateScoreUI("attentionScore", 2); // Visual feedback
+                }
+            };
+            b.ontouchstart = b.onmousedown;
+            
+            // Miss handler
+            setTimeout(() => {
+                if (b.parentNode && !b.dataset.popped) {
+                    if (colorName === gameData.attention.target_color) {
+                        focusMisses++;
+                        updateScoreUI("attentionScore", 2);
+                    }
+                    b.remove();
+                }
+            }, 4000);
+        }
+    }
+} else if (ageGroup === '6-10') {
+    const cptBtn = document.getElementById("startCpt");
+    const clkBtn = document.getElementById("cptClickBtn");
+    const screen = document.getElementById("cptElement");
+    
+    const elements = [
+        { id: "B_STAR", text: "⭐", color: "blue" },
+        { id: "R_SQ", text: "🟥", color: "red" },
+        { id: "G_CIR", text: "🟢", color: "green" },
+        { id: "Y_TRI", text: "🔺", color: "yellow" }
+    ];
+    
+    let cptInterval;
+    let lastElementId = null;
+    let currentElementId = null;
+    let omission = 0, commission = 0;
+    let trials = 0;
+    let isValidTarget = false;
+    let clickedThisRound = false;
+    
+    cptBtn.onclick = () => {
+        cptBtn.disabled = true;
+        clkBtn.disabled = false;
+        attentionScore = 3; // start perfect
+        updateScoreUI("attentionScore", 3);
+        
+        cptInterval = setInterval(() => {
+            if (trials >= 10) { // 10 flashes
+                clearInterval(cptInterval);
+                screen.innerText = "DONE";
+                clkBtn.disabled = true;
+                if (omission > 0 || commission > 1) updateScoreUI("attentionScore", 1);
+                else if (commission === 1) updateScoreUI("attentionScore", 2);
+                return;
+            }
+            
+            // Check if user missed previous target
+            if (isValidTarget && !clickedThisRound) omission++;
+            
+            // Generate sequence
+            let el;
+            if (lastElementId === "B_STAR" && Math.random() > 0.4) {
+                el = elements[1]; // force R_SQ (Target sequence)
+            } else {
+                el = elements[Math.floor(Math.random() * elements.length)];
+            }
+            
+            currentElementId = el.id;
+            screen.innerText = el.text;
+            
+            isValidTarget = (lastElementId === "B_STAR" && currentElementId === "R_SQ");
+            clickedThisRound = false;
+            
+            lastElementId = currentElementId;
+            trials++;
+        }, 1000);
+    };
+    
+    clkBtn.onclick = () => {
+        if (clickedThisRound) return;
+        clickedThisRound = true;
+        if (!isValidTarget) {
+            commission++; // Bad hit
+            ctxFlashRed(); // visual feedback
+        }
+    };
+    
+    function ctxFlashRed() {
+        screen.style.color = "black";
+        screen.style.backgroundColor = "#ffcccc";
+        setTimeout(()=>screen.style.backgroundColor="white", 200);
+    }
+
+} else {
+    // 11-15 Distraction Lab
+    const dStart = document.getElementById("startLab");
+    const sRed = document.getElementById("sortRed");
+    const sBlue = document.getElementById("sortBlue");
+    const labContainer = document.getElementById("labContainer");
+    const notif = document.getElementById("fakeNotification");
+    
+    let items = [], mistakes = 0, gameActive = false, boxTimer;
+    
+    // AI Variables
+    let jitterScore = 0;
+    let lastX = -1, lastY = -1;
+    
+    dStart.onclick = () => {
+        dStart.disabled = true;
+        sRed.disabled = false;
+        sBlue.disabled = false;
+        gameActive = true;
+        updateScoreUI("attentionScore", 3);
+        
+        // Spawn drop loop
+        boxTimer = setInterval(spawnDrop, 1500);
+        
+        // Annoying popup loop
+        setInterval(() => {
+            if (gameActive && Math.random() > 0.6) {
+                notif.style.display = "block";
+            }
+        }, 3000);
+        
+        // BEHAVIORAL MOUSE TRACKING ENGINE
+        document.addEventListener('mousemove', (e) => {
+            if(!gameActive) return;
+            if(lastX !== -1 && lastY !== -1) {
+                let dx = e.clientX - lastX;
+                let dy = e.clientY - lastY;
+                let speed = Math.sqrt(dx*dx + dy*dy);
+                // Erratic fast movements = jitter correlation
+                if (speed > 80) jitterScore++; 
+            }
+            lastX = e.clientX; lastY = e.clientY;
+        });
+
+        // Game end
+        setTimeout(() => {
+            gameActive = false;
+            clearInterval(boxTimer);
+            sRed.disabled = true;
+            sBlue.disabled = true;
+            labContainer.innerHTML = `<h3 style='color:white; margin-top:15%; text-align:center;'>Test Complete</h3><p style='text-align:center; color: #ffeb3b;'><i class='fas fa-mouse-pointer'></i> Jitter Tracking: <b>${jitterScore}</b> micro-jitters</p>`;
+            
+            let totalPenalty = mistakes + (jitterScore > 35 ? 2 : (jitterScore > 15 ? 1 : 0));
+            if (totalPenalty > 3) updateScoreUI("attentionScore", 1);
+            else if (totalPenalty > 0) updateScoreUI("attentionScore", 2);
+        }, 15000);
+    };
+    
+    window.closeNotification = () => {
+        notif.style.display = "none";
+    };
+    
+    function spawnDrop() {
+        if (!gameActive) return;
+        let isRed = Math.random() > 0.5;
+        let div = document.createElement("div");
+        div.style.width = "40px";
+        div.style.height = "40px";
+        div.style.borderRadius = "20px";
+        div.style.backgroundColor = isRed ? "#e74c3c" : "#3498db";
+        div.style.position = "absolute";
+        div.style.left = "50%";
+        div.style.transform = "translateX(-50%)";
+        div.style.top = "-50px";
+        div.style.transition = "top 3s linear";
+        
+        labContainer.appendChild(div);
+        items.push({ elem: div, isRed: isRed });
+        
+        setTimeout(() => { div.style.top = "300px"; }, 50);
+        
+        setTimeout(() => {
+            if (div.parentNode) {
+                mistakes++; // missed sorting
+                div.remove();
+                for(let i=0; i<items.length; i++) {
+                    if (items[i].elem === div) { items.splice(i,1); break; }
+                }
+            }
+        }, 3000);
+    }
+    
+    function sortItem(clickedRed) {
+        if (items.length === 0) return;
+        let first = items.shift();
+        if (first.isRed !== clickedRed) {
+            mistakes++;
+        }
+        if (first.elem.parentNode) first.elem.remove();
+    }
+    
+    sRed.onclick = () => sortItem(true);
+    sBlue.onclick = () => sortItem(false);
+}
+
+
+
+// ====== BEHAVIOR & EXECUTIVE FUNCTION TESTS ======
+let behaviorScore = 0;
+
+if (ageGroup === '1-5') {
+    const startMemBtn = document.getElementById("startMemory");
+    const cups = document.querySelectorAll(".memory-cup");
+    const star = document.getElementById("memoryStar");
+    const overlay = document.getElementById("memoryOverlay");
+    
+    // Fallback if elements not on screen
+    if (startMemBtn && cups.length > 0) {
+        let targetCup = gameData.behavior.hidden_cup !== undefined ? gameData.behavior.hidden_cup : 0;
+        let impulsivityTaps = 0;
+        let isLocked = false;
+        
+        startMemBtn.onclick = () => {
+            startMemBtn.disabled = true;
+            
+            // Show star moving to target cup
+            const targetBtn = cups[targetCup];
+            
+            star.style.opacity = 1;
+            star.style.left = targetBtn.style.left;
+            star.style.top = '10px';
+            
+            setTimeout(() => {
+                star.style.opacity = 0; // "Hides" inside cup
+            }, 1000);
+            
+            setTimeout(() => {
+                // Shuffle cups visually (just a quick CSS swap illusion)
+                const lefts = ["15%", "40%", "65%"];
+                cups.forEach((c, i) => {
+                     c.style.transition = "left 1s ease-in-out";
+                     c.style.left = lefts[(i + 1) % 3];
+                });
+                // Update target location variable to match the shifted index
+                targetCup = (targetCup === 0) ? 2 : targetCup - 1;
+            }, 2000);
+            
+            setTimeout(() => {
+                // Lock period
+                isLocked = true;
+                overlay.style.display = 'flex';
+                
+                // TTS Warning
+                const synth = window.speechSynthesis;
+                const u = new SpeechSynthesisUtterance("Wait for it...");
+                u.rate = 0.8;
+                synth.speak(u);
+                
+                // Track impulsive taps on the overlay
+                overlay.onmousedown = () => impulsivityTaps++;
+                overlay.ontouchstart = () => impulsivityTaps++;
+                
+            }, 3500);
+            
+            setTimeout(() => {
+                isLocked = false;
+                overlay.style.display = 'none'; // Lights back on
+                const synth = window.speechSynthesis;
+                const u = new SpeechSynthesisUtterance("Find the star!");
+                synth.speak(u);
+                enableCups();
+            }, 8500); // 5 sec lock delay
+        };
+        
+        function enableCups() {
+            cups.forEach((cup, index) => {
+                cup.onclick = () => {
+                    cups.forEach(c => c.disabled = true);
+                    
+                    // Lift cup animation
+                    cup.style.transition = "top 0.5s";
+                    cup.style.top = "-50px";
+                    
+                    let found = false;
+                    if (index === targetCup) {
+                        star.style.left = cup.style.left;
+                        star.style.top = "40px";
+                        star.style.opacity = 1;
+                        found = true;
+                    } else {
+                        cup.innerText = "❌";
+                    }
+                    
+                    // Score Calculation
+                    if (found && impulsivityTaps === 0) behaviorScore = 3;
+                    else if (!found && impulsivityTaps > 2) behaviorScore = 1;
+                    else behaviorScore = 2;
+                    
+                    updateScoreUI("behaviorScore", behaviorScore);
+                };
+            });
+        }
+    }
+
+} else if (ageGroup === '6-10') {
+    const startPlanBtn = document.getElementById("startPlanner");
+    const taskContainer = document.getElementById("plannerTasks");
+    const timerDisplay = document.getElementById("plannerTimer");
+    
+    let tasksCompleted = 0;
+    let timeRemaining = 15;
+    let plannerInterval;
+    let testActive = false;
+    
+    startPlanBtn.onclick = () => {
+        startPlanBtn.style.display = "none";
+        taskContainer.style.opacity = 1;
+        taskContainer.style.pointerEvents = "auto";
+        timerDisplay.style.display = "block";
+        testActive = true;
+        updateScoreUI("behaviorScore", 3);
+        
+        plannerInterval = setInterval(() => {
+            timeRemaining--;
+            timerDisplay.innerText = timeRemaining + "s";
+            if (timeRemaining <= 5) timerDisplay.style.color = "darkred";
+            
+            if (timeRemaining <= 0) {
+                clearInterval(plannerInterval);
+                testActive = false;
+                taskContainer.style.pointerEvents = "none";
+                // If they panicked and didn't finish: Impulsive/Overwhelmed
+                if (tasksCompleted < 5) updateScoreUI("behaviorScore", 1);
+            }
+        }, 1000);
+    };
+    
+    window.finishTask = function(btn) {
+        if (!testActive) return;
+        btn.disabled = true;
+        btn.classList.remove("btn-outline-primary");
+        btn.classList.add("btn-success");
+        btn.innerHTML = `<i class="fas fa-check-circle"></i> <del>${btn.innerText.trim()}</del>`;
+        tasksCompleted++;
+        
+        if (tasksCompleted >= 5) {
+            clearInterval(plannerInterval);
+            testActive = false;
+            if (timeRemaining > 8) behaviorScore = 3; // Excellent EF
+            else behaviorScore = 2; // Medium EF
+            updateScoreUI("behaviorScore", behaviorScore);
+        }
+    };
+
+} else {
+    // 11-15 Social Scenario
+    window.selectScenario = function(btn) {
+        const type = btn.getAttribute("data-type");
+        document.querySelectorAll(".scenario-btn").forEach(b => {
+            b.disabled = true;
+            if (b !== btn) b.style.opacity = "0.4";
+        });
+        
+        if (type === "Regulated") {
+            btn.classList.add("btn-success");
+            btn.classList.remove("btn-outline-dark");
+            behaviorScore = 3;
+        } else if (type === "Passive") {
+            btn.classList.add("btn-warning");
+            btn.classList.remove("btn-outline-dark");
+            behaviorScore = 2;
+        } else {
+            btn.classList.add("btn-danger");
+            btn.classList.remove("btn-outline-dark");
+            behaviorScore = 1;
+        }
+        
+        updateScoreUI("behaviorScore", behaviorScore);
+    };
+}
+
+// ====== SUBMIT TEST ======
+document.getElementById("submitTest").onclick = async ()=>{
+    // Fire Confetti!
+    if (typeof confetti === 'function') {
+        confetti({
+            particleCount: 150,
+            spread: 80,
+            origin: { y: 0.6 },
+            colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff']
+        });
+    }
+    
+    // Play audio praise
+    const synth = window.speechSynthesis;
+    const utterThis = new SpeechSynthesisUtterance("Amazing job! You finished the games.");
+    utterThis.rate = 1.0;
+    synth.speak(utterThis);
+
+    const dyslexiaScore=Math.max(readingScore,attentionScore);
+    const adhdScore=Math.max(attentionScore,behaviorScore);
+
+    const res=await fetch(`/teacher/submit_test/{{ child.id }}/{{ level }}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+            reading_score:readingScore,
+            attention_score:attentionScore,
+            behavior_score:behaviorScore,
+            dyslexia_score:dyslexiaScore,
+            adhd_score:adhdScore
+        })
+    });
+    const data=await res.json();
+    
+    // Delay alert slightly to let confetti animation play
+    setTimeout(() => {
+        alert(`✅ Test Submitted\nDyslexia: ${["Low","Medium","High"][dyslexiaScore-1]}\nADHD: ${["Low","Medium","High"][adhdScore-1]}\nOverall Risk: ${data.overall_risk}`);
+
+        if(data.redirect.includes("conduct_test")){
+            const nextBtn=document.getElementById("nextLevelTest");
+            nextBtn.style.display="block";
+            nextBtn.onclick=()=>window.location.href=data.redirect;
+        } else {
+            window.location.href=data.redirect;
+        }
+    }, 1500);
+};
+</script>
+</body>
+</html>
